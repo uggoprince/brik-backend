@@ -48,7 +48,7 @@ async function main() {
     },
   });
 
-  const job1 = await prisma.job.create({
+  await prisma.job.create({
     data: {
       title: 'HVAC Repair',
       description: 'Air conditioning unit not cooling properly',

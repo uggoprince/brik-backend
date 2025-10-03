@@ -6,8 +6,20 @@ const prisma = new PrismaClient();
 
 export class CustomerService {
   async createCustomer(data: CreateCustomerInput) {
+    const existingCustomer = await this.getCustomerByEmail(data.email);
+
+    if (existingCustomer) {
+      throw new AppError(409, 'Customer with this email already exists');
+    }
+
     return await prisma.customer.create({
       data,
+    });
+  }
+
+  async getCustomerByEmail(email: string) {
+    return await prisma.customer.findFirst({
+      where: { email },
     });
   }
 
