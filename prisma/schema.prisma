@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String
+  email     String
+  address   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  jobs      Job[]
+}
+
+model Technician {
+  id           String        @id @default(uuid())
+  name         String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  appointments Appointment[]
+}
+
+model Job {
+  id          String        @id @default(uuid())
+  title       String
+  description String
+  status      String        @default("New")
+  customerId  String
+  customer    Customer      @relation(fields: [customerId], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  appointment Appointment?
+  invoice     Invoice?
+  activities  JobActivity[]
+}
+
+model Appointment {
+  id           String     @id @default(uuid())
+  jobId        String     @unique
+  job          Job        @relation(fields: [jobId], references: [id])
+  technicianId String
+  technician   Technician @relation(fields: [technicianId], references: [id])
+  startTime    DateTime
+  endTime      DateTime
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model Invoice {
+  id        String    @id @default(uuid())
+  jobId     String    @unique
+  job       Job       @relation(fields: [jobId], references: [id])
+  subtotal  Float
+  tax       Float
+  total     Float
+  balance   Float
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  lineItems LineItem[]
+  payments  Payment[]
+}
+
+model LineItem {
+  id          String  @id @default(uuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id])
+  description String
+  quantity    Int
+  unitPrice   Float
+  total       Float
+}
+
+model Payment {
+  id        String   @id @default(uuid())
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id])
+  amount    Float
+  method    String   @default("card")
+  createdAt DateTime @default(now())
+}
+
+model JobActivity {
+  id        String   @id @default(uuid())
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id])
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+}
