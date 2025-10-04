@@ -2,11 +2,14 @@ import { PrismaClient } from '@prisma/client';
 import { CreatePaymentInput } from '../validators/invoiceValidator';
 import { AppError } from '../middleware/errorHandler';
 
-const prisma = new PrismaClient();
-
 export class InvoiceService {
+  private prisma: PrismaClient;
+
+  constructor(prisma?: PrismaClient) {
+    this.prisma = prisma || new PrismaClient();
+  }
   async getAllInvoices() {
-    return await prisma.invoice.findMany({
+    return await this.prisma.invoice.findMany({
       include: {
         job: {
           include: {
@@ -21,7 +24,7 @@ export class InvoiceService {
   }
 
   async getInvoiceById(id: string) {
-    const invoice = await prisma.invoice.findUnique({
+    const invoice = await this.prisma.invoice.findUnique({
       where: { id },
       include: {
         job: {
@@ -42,7 +45,7 @@ export class InvoiceService {
   }
 
   async createPayment(invoiceId: string, data: CreatePaymentInput) {
-    const invoice = await prisma.invoice.findUnique({
+    const invoice = await this.prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: {
         job: true,
@@ -61,7 +64,7 @@ export class InvoiceService {
       );
     }
 
-    const payment = await prisma.payment.create({
+    const payment = await this.prisma.payment.create({
       data: {
         invoiceId,
         amount: data.amount,
@@ -72,7 +75,7 @@ export class InvoiceService {
     const newBalance = invoice.balance - data.amount;
     const isFullyPaid = newBalance === 0;
 
-    await prisma.invoice.update({
+    await this.prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         balance: newBalance,
@@ -80,7 +83,7 @@ export class InvoiceService {
     });
 
     if (isFullyPaid) {
-      await prisma.job.update({
+      await this.prisma.job.update({
         where: { id: invoice.jobId },
         data: {
           status: 'Paid',
@@ -93,7 +96,7 @@ export class InvoiceService {
         },
       });
     } else {
-      await prisma.jobActivity.create({
+      await this.prisma.jobActivity.create({
         data: {
           jobId: invoice.jobId,
           action: 'Payment Received',
@@ -102,7 +105,7 @@ export class InvoiceService {
       });
     }
 
-    const updatedInvoice = await prisma.invoice.findUnique({
+    const updatedInvoice = await this.prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: {
         payments: true,

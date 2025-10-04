@@ -8,11 +8,14 @@ import {
 } from '../validators/jobValidator';
 import { AppError } from '../middleware/errorHandler';
 
-const prisma = new PrismaClient();
-
 export class JobService {
+  private prisma: PrismaClient;
+
+  constructor(prisma?: PrismaClient) {
+    this.prisma = prisma || new PrismaClient();
+  }
   async createJob(data: CreateJobInput) {
-    const customer = await prisma.customer.findUnique({
+    const customer = await this.prisma.customer.findUnique({
       where: { id: data.customerId },
     });
 
@@ -20,7 +23,7 @@ export class JobService {
       throw new AppError(404, 'Customer not found');
     }
 
-    return await prisma.job.create({
+    return await this.prisma.job.create({
       data: {
         ...data,
         status: 'New',
@@ -39,7 +42,7 @@ export class JobService {
   }
 
   async getAllJobs(status?: string) {
-    return await prisma.job.findMany({
+    return await this.prisma.job.findMany({
       where: status ? { status } : undefined,
       include: {
         customer: true,
@@ -55,7 +58,7 @@ export class JobService {
   }
 
   async getJobById(id: string) {
-    const job = await prisma.job.findUnique({
+    const job = await this.prisma.job.findUnique({
       where: { id },
       include: {
         customer: true,
@@ -84,7 +87,7 @@ export class JobService {
   }
 
   async updateJobStatus(id: string, data: UpdateStatusInput) {
-    const job = await prisma.job.findUnique({
+    const job = await this.prisma.job.findUnique({
       where: { id },
       include: { appointment: true },
     });
@@ -101,7 +104,7 @@ export class JobService {
       throw new AppError(400, 'Cannot mark job as Done without an appointment');
     }
 
-    return await prisma.job.update({
+    return await this.prisma.job.update({
       where: { id },
       data: {
         status: data.status,
@@ -123,7 +126,7 @@ export class JobService {
   }
 
   async createAppointment(jobId: string, data: CreateAppointmentInput) {
-    const job = await prisma.job.findUnique({
+    const job = await this.prisma.job.findUnique({
       where: { id: jobId },
       include: { appointment: true },
     });
@@ -136,7 +139,7 @@ export class JobService {
       throw new AppError(400, 'Job already has an appointment');
     }
 
-    const technician = await prisma.technician.findUnique({
+    const technician = await this.prisma.technician.findUnique({
       where: { id: data.technicianId },
     });
 
@@ -151,7 +154,7 @@ export class JobService {
       throw new AppError(400, 'End time must be after start time');
     }
 
-    const existingAppointments = await prisma.appointment.findMany({
+    const existingAppointments = await this.prisma.appointment.findMany({
       where: { technicianId: data.technicianId },
     });
 
@@ -170,7 +173,7 @@ export class JobService {
       );
     }
 
-    const appointment = await prisma.appointment.create({
+    const appointment = await this.prisma.appointment.create({
       data: {
         jobId,
         technicianId: data.technicianId,
@@ -182,16 +185,18 @@ export class JobService {
       },
     });
 
-    await prisma.job.update({
+    await this.prisma.jobActivity.create({
+      data: {
+        jobId,
+        action: 'Job Scheduled',
+        details: `Scheduled with ${technician.name} from ${startTime.toLocaleString()} to ${endTime.toLocaleString()}`,
+      },
+    });
+
+    await this.prisma.job.update({
       where: { id: jobId },
       data: {
         status: 'Scheduled',
-        activities: {
-          create: {
-            action: 'Job Scheduled',
-            details: `Scheduled with ${technician.name} from ${startTime.toLocaleString()} to ${endTime.toLocaleString()}`,
-          },
-        },
       },
     });
 
@@ -199,7 +204,7 @@ export class JobService {
   }
 
   async createInvoice(jobId: string, data: CreateInvoiceInput) {
-    const job = await prisma.job.findUnique({
+    const job = await this.prisma.job.findUnique({
       where: { id: jobId },
       include: { invoice: true },
     });
@@ -223,7 +228,7 @@ export class JobService {
     const tax = subtotal * data.taxRate;
     const total = subtotal + tax;
 
-    const invoice = await prisma.invoice.create({
+    const invoice = await this.prisma.invoice.create({
       data: {
         jobId,
         subtotal,
@@ -244,7 +249,7 @@ export class JobService {
       },
     });
 
-    await prisma.job.update({
+    await this.prisma.job.update({
       where: { id: jobId },
       data: {
         status: 'Invoiced',
