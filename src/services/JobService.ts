@@ -93,6 +93,10 @@ export class JobService {
       throw new AppError(404, 'Job not found');
     }
 
+    if (data.status === 'Scheduled' && !job.appointment) {
+      throw new AppError(400, 'Cannot mark job as Scheduled without an appointment');
+    }
+
     if (data.status === 'Done' && !job.appointment) {
       throw new AppError(400, 'Cannot mark job as Done without an appointment');
     }

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { customerRoutes } from './customers';
 import { jobRoutes } from './jobs';
 import technicianRoutes from './technicians';
+import { invoiceRoutes } from './invoices';
 
 const router = Router();
 
@@ -18,5 +19,6 @@ router.get('/health', (req, res) => {
 router.use('/customers', customerRoutes);
 router.use('/jobs', jobRoutes);
 router.use('/technicians', technicianRoutes);
+router.use('/invoices', invoiceRoutes);
 
 export default router;

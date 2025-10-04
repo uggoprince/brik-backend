@@ -17,13 +17,15 @@ export const updateStatusSchema = z.object({
 });
 
 export const createInvoiceSchema = z.object({
-  lineItems: z.array(
-    z.object({
-      description: z.string().min(1),
-      quantity: z.number().int().positive(),
-      unitPrice: z.number().positive(),
-    })
-  ).min(1, 'At least one line item is required'),
+  lineItems: z
+    .array(
+      z.object({
+        description: z.string().min(1),
+        quantity: z.number().int().positive(),
+        unitPrice: z.number().positive(),
+      })
+    )
+    .min(1, 'At least one line item is required'),
   taxRate: z.number().min(0).max(1).default(0.08),
 });
 

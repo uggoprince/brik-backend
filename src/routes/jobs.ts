@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { JobController } from '../controllers/JobsController';
-import { createAppointmentSchema, createJobSchema } from '../validators/jobValidator';
+import { createAppointmentSchema, createInvoiceSchema, createJobSchema, updateStatusSchema } from '../validators/jobValidator';
 import { validate } from '../middleware/validate';
 
 const router = Router();
@@ -16,7 +16,7 @@ router.get('/', [jobController.getAllJobs.bind(jobController)]);
 router.get('/:id', [jobController.getJobById.bind(jobController)]);
 
 // PATCH /api/jobs/:id/status - Update job status
-router.patch('/:id/status', [jobController.updateJobStatus.bind(jobController)]);
+router.patch('/:id/status', validate(updateStatusSchema), [jobController.updateJobStatus.bind(jobController)]);
 
 // POST /api/jobs/:id/appointments - Schedule technician for job
 router.post('/:id/appointments', validate(createAppointmentSchema), [
@@ -24,6 +24,6 @@ router.post('/:id/appointments', validate(createAppointmentSchema), [
 ]);
 
 // POST /api/jobs/:id/invoice - Create invoice for job
-router.post('/:id/invoice', [jobController.createInvoice.bind(jobController)]);
+router.post('/:id/invoice', validate(createInvoiceSchema), [jobController.createInvoice.bind(jobController)]);
 
 export { router as jobRoutes };
