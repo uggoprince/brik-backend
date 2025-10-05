@@ -1,123 +1,150 @@
-# Brik Lead-to-Paid CRM
+# Brik Backend API
 
-A minimal field service management system covering the complete workflow from lead to payment.
+A minimal field service management system backend covering the complete workflow from lead to payment.
 
 ## Stack Choice
 
-**Backend:**
-- Node.js + Express + TypeScript
-- SQLite with better-sqlite3 (synchronous, simpler than async)
-- Jest + Supertest for testing
+- **Node.js + Express + TypeScript** - Lightweight web framework with type safety
+- **Prisma ORM** - Type-safe database access with automatic migrations
+- **SQLite** - File-based database, no external setup required
+- **Zod** - Runtime validation and type inference
+- **Jest + Supertest** - Testing framework for unit and integration tests
+- **date-fns** - Date manipulation utilities
 
-**Frontend:**
-- React 18 + TypeScript
-- React Router for navigation
-- Tailwind CSS for styling
-- Date handling with date-fns
+### Tradeoffs & Rationale
 
-**Rationale:**
-- SQLite: Perfect for take-home - no external DB setup, file-based, full SQL support
-- TypeScript: Type safety catches errors early, better DX
-- Express: Lightweight, widely known, quick to set up RESTful APIs
-- React: Component-based UI, easy state management for this scope
+**SQLite**
+- ✅ Zero configuration, file-based, perfect for development and demos
+- ✅ Full SQL support with ACID compliance
+- ❌ Not suitable for production with high concurrency
+- Would migrate to PostgreSQL for production
+
+**Prisma ORM**
+- ✅ Type-safe queries, auto-generated client
+- ✅ Intuitive migrations and schema management
+- ❌ Less control over raw SQL compared to query builders
+- Chose for developer experience and rapid development
+
+**Express**
+- ✅ Minimal, flexible, widely adopted
+- ✅ Large ecosystem of middleware
+- ❌ Requires more setup than opinionated frameworks
+- Chose for simplicity and familiarity
 
 ## Setup Instructions
 
 ### Prerequisites
 - Node.js 18+ and npm
 
+### Environment Variable
+Create a .env file and add the following:
+
+- `DATABASE_URL="file:./prisma/dev.db"`
+- `PORT=3001`
+- `NODE_ENV=development`
+
 ### Installation
 
 ```bash
-# Install dependencies for both backend and frontend
-npm run install:all
+# Install dependencies
+npm install
 
-# Or install separately
-cd backend && npm install
-cd ../frontend && npm install
+# Generate Prisma client
+npx prisma generate
+
+# Run database migrations
+npm run db:migrate
 ```
 
-### Running the Application
+## Run Instructions
+
+### Development Mode
 
 ```bash
-# Run both backend and frontend concurrently (recommended)
 npm run dev
-
-# Or run separately:
-# Backend (port 3001)
-cd backend && npm run dev
-
-# Frontend (port 3000)
-cd frontend && npm start
 ```
 
-### Seed Data
+Server runs on `http://localhost:3001`
+
+### Production Build
 
 ```bash
-cd backend
-npm run seed
+npm run build
+npm start
 ```
 
-Seeds:
-- 3 customers (Alice Johnson, Bob Smith, Carol Davis)
-- 1 technician (Taylor)
-- 2 jobs in "New" status
-- 1 job in "Scheduled" status (Taylor, 10:00-12:00)
-
-### Testing
+### Database Management
 
 ```bash
-# Run all backend tests
-cd backend && npm test
+# Run migrations
+npm run db:migrate
 
-# Run with coverage
+# Open Prisma Studio (database GUI)
+npm run db:studio
+```
+
+## Seed Script
+
+```bash
+npm run db:seed
+```
+
+**Seed data includes:**
+- 3 Customers: John Smith, Sarah Johnson, Mike Williams
+- 1 Technician: Taylor
+- 3 Jobs:
+  - HVAC Repair (New)
+  - Plumbing Installation (New)
+  - Electrical Inspection (Scheduled with Taylor, tomorrow 10:00-12:00)
+
+## Testing
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# View test coverage (if configured)
 npm run test:coverage
-
-# Frontend tests (if implemented)
-cd frontend && npm test
 ```
 
 ## Key Design Decisions & Tradeoffs
 
 ### Data Model
-- **Single technician table**: Could be extended to a "User" table with roles
-- **Time windows**: Stored as ISO strings; simple overlap detection with string comparison
-- **Invoice line items**: Stored as JSON array; would normalize in production for querying
-- **Status transitions**: Enforced at application layer; could add DB constraints
+- **Normalized schema**: Separate tables for Customers, Technicians, Jobs, Appointments, Invoices, LineItems, Payments, and JobActivity
+- **Time windows**: Stored as DateTime; overlap detection via SQL/application logic
+- **Invoice line items**: Normalized as separate table (LineItem) for queryability
+- **Job activities**: Audit trail stored in JobActivity table
+- **Status transitions**: Enforced at application layer with validation
+- **Cascading deletes**: Configured at database level via Prisma relations
 
 ### API Design
 - RESTful resources with standard HTTP methods
-- Nested endpoints for relationships (e.g., `/jobs/:id/appointments`)
-- 409 Conflict for business rule violations (overlaps, invalid transitions)
-- 422 Unprocessable Entity for validation errors
-- All successful creates return 201 with Location header
+- Nested endpoints for relationships (e.g., `/jobs/:id/appointments`, `/jobs/:id/invoice`)
+- HTTP status codes:
+  - `201` Created - with resource location
+  - `400` Bad Request - validation errors
+  - `404` Not Found - resource doesn't exist
+  - `409` Conflict - business rule violations (overlaps, invalid transitions)
+- Request validation using Zod schemas
+- Consistent error response format
 
 ### State Management
-- Jobs move through states: New → Scheduled → Done → Invoiced → Paid
-- Appointments can only be created for New/Scheduled jobs
-- Jobs must be Scheduled before marking Done
-- Jobs must be Done before creating invoice
-- Job auto-transitions to Paid when invoice balance reaches 0
+- Jobs workflow: `New` → `Scheduled` → `Done` → `Invoiced` → `Paid`
+- Business rules:
+  - Appointments can only be created for New/Scheduled jobs
+  - Jobs must be Scheduled before marking Done
+  - Jobs must be Done before creating invoice
+  - Job auto-transitions to Paid when invoice balance reaches 0
+- All state changes tracked in JobActivity table
 
 ### Validation Strategy
-- Joi schemas for request validation
-- Database constraints for data integrity
-- Business logic validation in service layer
-- Atomic operations using transactions
-
-### What I'd Add with More Time
-- **Authentication & Authorization**: Multi-tenant with RBAC
-- **Audit Log**: Track who changed what and when
-- **Soft Deletes**: Keep historical data
-- **Pagination**: For job/customer lists
-- **Search**: Full-text search on customers/jobs
-- **Notifications**: Email/SMS for appointments
-- **File Uploads**: Photos, signatures, documents
-- **Calendar Integration**: Sync with Google Calendar
-- **Optimistic UI Updates**: Better perceived performance
-- **WebSocket**: Real-time updates for dispatch board
-- **Advanced Scheduling**: Recurring jobs, travel time, territories
-- **Reporting**: Revenue, technician utilization, etc.
+- Zod schemas for runtime request validation and type inference
+- Prisma schema constraints for data integrity (@unique, onDelete)
+- Business logic validation in service/controller layer
+- Transactions for atomic operations (invoice creation with line items)
 
 ## API Endpoints
 
@@ -146,38 +173,35 @@ cd frontend && npm test
 ## Testing Coverage
 
 **Unit Tests:**
-- Invoice calculation (subtotal, tax, total)
-- Payment balance updates
-- Appointment overlap detection
+- Business logic validation
+- Data transformation utilities
+- Service layer methods
 
 **Integration Tests:**
-- Complete Lead-to-Paid flow
-- Appointment conflict handling (409 response)
-- Status transition validations
+- Complete Lead-to-Paid flow (end-to-end)
+- API endpoint behavior
+- Database operations with transactions
+- Error handling and edge cases
 
 ## Project Structure
 
 ```
-backend/
+brik-backend/
+├── prisma/
+│   ├── schema.prisma        # Database schema
+│   ├── migrations/          # Database migrations
+│   └── seed.ts             # Seed data script
 ├── src/
-│   ├── controllers/     # HTTP request handlers
-│   ├── services/        # Business logic
-│   ├── models/          # Database access layer
-│   ├── middleware/      # Express middleware
-│   ├── validators/      # Request validation schemas
-│   ├── database.ts      # DB connection & migrations
-│   ├── seed.ts         # Seed data script
-│   └── server.ts       # Express app setup
-├── tests/              # Test files
-└── database.sqlite     # SQLite database file
-
-frontend/
-├── src/
-│   ├── components/     # React components
-│   ├── pages/         # Page-level components
-│   ├── services/      # API client
-│   ├── types/         # TypeScript types
-│   └── App.tsx        # Main app component
-└── public/
-
+│   ├── controllers/        # HTTP request handlers
+│   ├── services/           # Business logic layer
+│   ├── middlewares/        # Express middleware (validation, error handling)
+│   ├── validators/         # Zod validation schemas
+│   ├── types/              # TypeScript type definitions
+│   ├── utils/              # Utility functions
+│   ├── index.ts            # Application entry point
+│   └── app.ts              # Express app configuration
+├── tests/                  # Test files (unit & integration)
+├── .env                    # Environment variables
+├── .env.example            # Example environment config
+└── prisma.db              # SQLite database file (generated)
 ```
